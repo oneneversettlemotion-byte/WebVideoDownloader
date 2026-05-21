@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Downloader</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: #0F0F13;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── 背景光晕 */
+    body::before {
+      content: "";
+      position: fixed;
+      top: -160px; right: -160px;
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(124,58,237,.35) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      bottom: -120px; left: -120px;
+      width: 420px; height: 420px;
+      background: radial-gradient(circle, rgba(236,72,153,.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── 主卡片 */
+    .card {
+      width: 600px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 28px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      padding: 40px 40px 36px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── 头部 */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 36px;
+    }
+    .header-left h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      background: linear-gradient(135deg, #fff 30%, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .header-left p {
+      margin-top: 6px;
+      font-size: 13px;
+      color: rgba(255,255,255,.4);
+      letter-spacing: .1px;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,58,237,.2);
+      border: 1px solid rgba(124,58,237,.4);
+      border-radius: 99px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: #c4b5fd;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #a78bfa;
+      box-shadow: 0 0 6px #a78bfa;
+    }
+
+    /* ── 标签 */
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,.35);
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* ── URL 输入框 */
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 0 16px;
+      transition: border-color .2s, box-shadow .2s;
+      margin-bottom: 24px;
+    }
+    .input-wrap:focus-within {
+      border-color: rgba(124,58,237,.7);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+    }
+    .input-wrap .icon {
+      font-size: 17px;
+      opacity: .4;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    .input-wrap input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      color: #fff;
+      padding: 15px 0;
+      font-family: inherit;
+    }
+    .input-wrap input::placeholder {
+      color: rgba(255,255,255,.25);
+    }
+    .input-wrap .clear-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,.25);
+      font-size: 16px;
+      padding: 4px;
+      line-height: 1;
+      transition: color .15s;
+    }
+    .input-wrap .clear-btn:hover { color: rgba(255,255,255,.6); }
+
+    /* ── 设置行 */
+    .settings-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .setting-block {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .setting-block:hover {
+      border-color: rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
+    }
+    .setting-block .s-label {
+      font-size: 11px;
+      color: rgba(255,255,255,.3);
+      font-weight: 600;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .setting-block .s-value {
+      font-size: 13px;
+      color: rgba(255,255,255,.85);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .setting-block .s-value span { opacity: .4; font-size: 11px; }
+
+    /* ── 进度区 */
+    .progress-section {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 16px;
+      padding: 18px 20px;
+      margin-bottom: 28px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .progress-status {
+      font-size: 13px;
+      color: rgba(255,255,255,.5);
+    }
+    .progress-pct {
+      font-size: 13px;
+      font-weight: 700;
+      color: #a78bfa;
+    }
+    .progress-bar-bg {
+      height: 6px;
+      background: rgba(255,255,255,.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 65%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #7c3aed, #ec4899);
+      transition: width .4s ease;
+    }
+    .progress-meta {
+      display: flex;
+      gap: 20px;
+    }
+    .meta-item { font-size: 12px; color: rgba(255,255,255,.3); }
+    .meta-item strong { color: rgba(255,255,255,.6); font-weight: 600; }
+
+    /* ── 日志 */
+    .log-box {
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: "SF Mono", "Menlo", monospace;
+      font-size: 11px;
+      color: rgba(255,255,255,.3);
+      line-height: 1.7;
+      max-height: 90px;
+      overflow-y: auto;
+      margin-bottom: 28px;
+    }
+    .log-box .log-line { display: block; }
+    .log-box .log-info  { color: rgba(167,139,250,.7); }
+    .log-box .log-ok    { color: rgba(52,211,153,.7); }
+    .log-box .log-warn  { color: rgba(251,191,36,.7); }
+
+    /* ── 按钮区 */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-primary {
+      flex: 1;
+      padding: 14px 0;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: -.1px;
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+      color: #fff;
+      transition: opacity .2s, transform .15s;
+      box-shadow: 0 4px 20px rgba(124,58,237,.35);
+    }
+    .btn-primary:hover {
+      opacity: .9;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(124,58,237,.45);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      cursor: pointer;
+      font-size: 18px;
+      color: rgba(255,255,255,.45);
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, border-color .2s, color .2s;
+      flex-shrink: 0;
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,.10);
+      border-color: rgba(255,255,255,.2);
+      color: rgba(255,255,255,.8);
+    }
+
+    /* ── 底部平台标签 */
+    .platforms {
+      margin-top: 20px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .platform-tag {
+      font-size: 11px;
+      color: rgba(255,255,255,.25);
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 99px;
+      padding: 4px 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <!-- 头部 -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Video Downloader</h1>
+      <p>下载任意网页视频，保留最高清晰度与音频</p>
+    </div>
+    <div class="badge">
+      <span class="dot"></span>
+      就绪
+    </div>
+  </div>
+
+  <!-- URL 输入 -->
+  <div class="label">视频链接</div>
+  <div class="input-wrap">
+    <span class="icon">🔗</span>
+    <input type="text" placeholder="粘贴视频链接……YouTube、Bilibili、Vimeo 均可" />
+    <button class="clear-btn">✕</button>
+  </div>
+
+  <!-- 设置行 -->
+  <div class="settings-row">
+    <div class="setting-block">
+      <div class="s-label">画质</div>
+      <div class="s-value">最高画质 <span>▾</span></div>
+    </div>
+    <div class="setting-block">
+      <div class="s-label">保存位置</div>
+      <div class="s-value">~/Downloads <span>▾</span></div>
+    </div>
+  </div>
+
+  <!-- 进度 -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-status">正在下载…</span>
+      <span class="progress-pct">65%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill"></div>
+    </div>
+    <div class="progress-meta">
+      <div class="meta-item">速度 <strong>2.4 MB/s</strong></div>
+      <div class="meta-item">剩余 <strong>00:42</strong></div>
+      <div class="meta-item">大小 <strong>248 MB</strong></div>
+    </div>
+  </div>
+
+  <!-- 日志 -->
+  <div class="log-box">
+    <span class="log-line log-info">[youtube] Extracting URL…</span>
+    <span class="log-line log-info">[youtube] Downloading webpage</span>
+    <span class="log-line log-ok">[download] Destination: ~/Downloads/video.mp4</span>
+    <span class="log-line">[download]  65.2% of 248.3MiB at 2.40MiB/s ETA 00:42</span>
+  </div>
+
+  <!-- 按钮 -->
+  <div class="btn-row">
+    <button class="btn-primary">⬇  开始下载</button>
+    <button class="btn-icon" title="停止">⏹</button>
+    <button class="btn-icon" title="打开文件夹">📂</button>
+  </div>
+
+  <!-- 平台标签 -->
+  <div class="platforms">
+    <span class="platform-tag">YouTube</span>
+    <span class="platform-tag">Bilibili</span>
+    <span class="platform-tag">Vimeo</span>
+    <span class="platform-tag">Behance</span>
+    <span class="platform-tag">Twitter/X</span>
+    <span class="platform-tag">TikTok</span>
+    <span class="platform-tag">Instagram</span>
+    <span class="platform-tag">1000+ 站点</span>
+  </div>
+
+</div>
+
+</body>
+</html>
