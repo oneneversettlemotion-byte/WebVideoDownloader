@@ -2,9 +2,9 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:  # 手动触发
-  push:
-    tags:
-      - 'v*'         # 打 tag 时自动触发
+
+permissions:
+  contents: write    # 允许上传到 Release
 
 jobs:
   build-windows:
@@ -25,8 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flask flask-sock pywebview pyinstaller
-          pip install yt-dlp
+          pip install flask flask-sock pywebview pyinstaller pillow yt-dlp
 
       # 4. 下载 Windows 版 ffmpeg
       - name: Download ffmpeg for Windows
@@ -44,29 +43,9 @@ jobs:
           curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -o yt-dlp.exe
         shell: cmd
 
-      # 6. 生成 Windows 图标（将 logo.jpg 转为 .ico）
+      # 6. 生成 Windows .ico 图标
       - name: Generate Windows icon
         run: |
-          python -c "
-          from PIL import Image
-          import sys
-          try:
-            img = Image.open('logo.jpg').convert('RGBA')
-            sizes = [(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]
-            img.save('AppIcon.ico', format='ICO', sizes=sizes)
-            print('Icon generated successfully')
-          except Exception as e:
-            print(f'Icon generation failed: {e}, using default')
-            # 创建一个简单的默认图标
-            img = Image.new('RGBA', (256,256), (100,100,200,255))
-            img.save('AppIcon.ico', format='ICO')
-          "
-          pip install pillow
-
-      # 7. 重新生成图标（确保 pillow 安装后再运行）
-      - name: Generate icon with pillow
-        run: |
-          pip install pillow
           python -c "
           from PIL import Image
           img = Image.open('logo.jpg').convert('RGBA')
@@ -75,7 +54,7 @@ jobs:
           print('AppIcon.ico created')
           "
 
-      # 8. PyInstaller 打包
+      # 7. PyInstaller 打包
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --noconfirm --clean `
@@ -93,25 +72,15 @@ jobs:
             main.py
         shell: pwsh
 
-      # 9. 打包成 zip
+      # 8. 打包成 zip
       - name: Zip the dist folder
-        run: |
-          cd dist
-          powershell Compress-Archive -Path "VideoDownloader" -DestinationPath "..\VideoDownloader-Windows.zip"
-        shell: cmd
+        run: Compress-Archive -Path "dist\VideoDownloader" -DestinationPath "VideoDownloader-Windows.zip"
+        shell: pwsh
 
-      # 10. 上传 artifact（供下载）
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: VideoDownloader-Windows
-          path: VideoDownloader-Windows.zip
-          retention-days: 30
-
-      # 11. 如果是 tag 触发，自动上传到 Release
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+      # 9. 上传到 v1.0.0 Release（与 Mac DMG 放在一起）
+      - name: Upload Windows zip to v1.0.0 Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v1.0.0          # 指定上传到已有的 v1.0.0
           files: VideoDownloader-Windows.zip
           token: ${{ secrets.GITHUB_TOKEN }}
